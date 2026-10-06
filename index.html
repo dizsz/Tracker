@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Трекер тренировок и замеров</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    :root {
+      --bg-color: #f4f6f8;
+      --card-bg: #ffffff;
+      --text-color: #212529;
+      --accent-color: #007aff;
+      --border-color: #e5e5ea;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      margin: 0;
+      padding: 16px;
+      box-sizing: border-box;
+    }
+    h2 {
+      margin-top: 0;
+      font-size: 20px;
+      text-align: center;
+      color: #111;
+    }
+    .card {
+      background: var(--card-bg);
+      border-radius: 14px;
+      padding: 16px;
+      margin-bottom: 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+    .card h3 {
+      margin-top: 0;
+      font-size: 16px;
+      color: var(--accent-color);
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 8px;
+    }
+    .form-group {
+      margin-bottom: 12px;
+    }
+    label {
+      display: block;
+      font-size: 13px;
+      color: #666;
+      margin-bottom: 4px;
+    }
+    input, select {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      font-size: 15px;
+      box-sizing: border-box;
+      outline: none;
+    }
+    input:focus {
+      border-color: var(--accent-color);
+    }
+    .btn-submit {
+      width: 100%;
+      background-color: var(--accent-color);
+      color: white;
+      border: none;
+      padding: 14px;
+      font-size: 16px;
+      font-weight: 600;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn-submit:active {
+      opacity: 0.8;
+    }
+    .status-msg {
+      text-align: center;
+      margin-top: 12px;
+      font-size: 14px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>📊 Трекер активности</h2>
+
+  <form id="trackerForm">
+    <!-- Блок даты -->
+    <div class="card">
+      <div class="form-group">
+        <label for="date">Дата</label>
+        <input type="date" id="date" required>
+      </div>
+    </div>
+
+    <!-- Блок тренировок и активности -->
+    <div class="card">
+      <h3>💪 Тренировки и активность</h3>
+      <div class="form-group">
+        <label for="workout">Тип тренировки (Силовая / Кардио)</label>
+        <input type="text" id="workout" placeholder="Например: Силовая (Ноги)">
+      </div>
+      <div class="form-group">
+        <label for="steps">Шаги</label>
+        <input type="number" id="steps" placeholder="Например: 10000">
+      </div>
+    </div>
+
+    <!-- Блок питания -->
+    <div class="card">
+      <h3>🥗 Питание и вода</h3>
+      <div class="form-group">
+        <label for="kcal">Калории (Ккал)</label>
+        <input type="number" id="kcal" placeholder="Например: 1800">
+      </div>
+      <div class="form-group">
+        <label for="protein">Белок (г)</label>
+        <input type="number" id="protein" placeholder="Например: 110">
+      </div>
+      <div class="form-group">
+        <label for="water">Вода (л)</label>
+        <input type="number" step="0.1" id="water" placeholder="Например: 2.0">
+      </div>
+    </div>
+
+    <!-- Блок замеров тела -->
+    <div class="card">
+      <h3>📏 Замеры тела</h3>
+      <div class="form-group">
+        <label for="weight">Вес (кг)</label>
+        <input type="number" step="0.1" id="weight" placeholder="Например: 60.5">
+      </div>
+      <div class="form-group">
+        <label for="og">Обхват груди (ОГ, см)</label>
+        <input type="number" step="0.1" id="og" placeholder="Например: 90">
+      </div>
+      <div class="form-group">
+        <label for="ot">Обхват талии (ОТ, см)</label>
+        <input type="number" step="0.1" id="ot" placeholder="Например: 65">
+      </div>
+      <div class="form-group">
+        <label for="ob">Обхват бедер (ОБ, см)</label>
+        <input type="number" step="0.1" id="ob" placeholder="Например: 95">
+      </div>
+    </div>
+
+    <button type="submit" class="btn-submit" id="submitBtn">Сохранить данные</button>
+    <div id="status" class="status-msg"></div>
+  </form>
+
+  <script>
+    const tg = window.Telegram ? window.Telegram.WebApp : null;
+    if (tg) tg.expand();
+
+    // Установка сегодняшней даты по умолчанию
+    document.getElementById('date').valueAsDate = new Date();
+
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby0St_6yNsk_k0_MeK1GI-I0cMhZ2jNdBQBFj-mrBpMks1CuTc4YXwHDN4k89mnBY6-aA/exec";
+
+    document.getElementById('trackerForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      
+      const btn = document.getElementById('submitBtn');
+      const status = document.getElementById('status');
+      
+      btn.disabled = true;
+      btn.innerText = "Сохранение...";
+      status.style.display = "none";
+
+      const payload = {
+        date: document.getElementById('date').value,
+        workout: document.getElementById('workout').value,
+        kcal: document.getElementById('kcal').value,
+        protein: document.getElementById('protein').value,
+        steps: document.getElementById('steps').value,
+        water: document.getElementById('water').value,
+        og: document.getElementById('og').value,
+        ot: document.getElementById('ot').value,
+        ob: document.getElementById('ob').value,
+        weight: document.getElementById('weight').value
+      };
+
+      fetch(SCRIPT_URL, {
+        method: "POST",
+        mode: "no-cors",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+      })
+      .then(() => {
+        btn.disabled = false;
+        btn.innerText = "Сохранить данные";
+        status.style.color = "green";
+        status.innerText = "Успешно сохранено в Google Таблицу! ✅";
+        status.style.display = "block";
+        
+        // Очистка полей после успешной отправки (кроме даты)
+        document.getElementById('workout').value = '';
+        document.getElementById('kcal').value = '';
+        document.getElementById('protein').value = '';
+        document.getElementById('steps').value = '';
+        document.getElementById('water').value = '';
+        document.getElementById('og').value = '';
+        document.getElementById('ot').value = '';
+        document.getElementById('ob').value = '';
+        document.getElementById('weight').value = '';
+
+        if (tg) setTimeout(() => tg.close(), 1500);
+      })
+      .catch(error => {
+        btn.disabled = false;
+        btn.innerText = "Сохранить данные";
+        status.style.color = "red";
+        status.innerText = "Ошибка при отправке ❌";
+        status.style.display = "block";
+        console.error(error);
+      });
+    });
+  </script>
+</body>
+</html>
